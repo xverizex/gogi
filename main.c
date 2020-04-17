@@ -81,6 +81,7 @@ int main ( int argc, char **argv ) {
 			"\n"
 			"GType %s_get_type (void) G_GNUC_CONST;\n"
 			"\n"
+			"GtkWidget *%s_new ( void );\n"
 			"G_END_DECLS\n"
 			"\n"
 			"#endif  /* _%s_%s_H_ */\n"
@@ -102,8 +103,8 @@ int main ( int argc, char **argv ) {
 		base_class,
 		class_name,
 		class_prefix,
-		gobject_prefix, gobject_type
-
+		gobject_prefix, gobject_type,
+		class_name
 		);
 
 	FILE *fp_header = fopen ( header, "w" );
@@ -119,12 +120,59 @@ int main ( int argc, char **argv ) {
 			"};\n"
 			"\n"
 			"\n"
-			"G_DEFINE_TYPE (%s, %s, G_TYPE_OBJECT);\n"
+			"G_DEFINE_TYPE (%s, %s, GTK_TYPE_WIDGET);\n"
+			"\n"
+			"const int WIDTH = 400;\n"
+			"const int HEIGHT = 400;\n"
+			"\n"
+			"static void %s_get_preferred_width ( GtkWidget *widget, int *min_w, int *nat_w ) {\n"
+			"  *min_w = *nat_w = WIDTH;\n"
+			"}\n"
+			"\n"
+			"static void %s_get_preferred_height ( GtkWidget *widget, int *min_h, int *nat_h ) {\n"
+			"  *min_h = *nat_h = HEIGHT;\n"
+			"}\n"
+			"\n"
+			"static void %s_size_allocate ( GtkWidget *widget, GtkAllocation *al ) {\n"
+			"  %sPrivate *priv;\n"
+			"  priv = %s_%s ( widget )->priv;\n"
+			"  gtk_widget_set_allocation ( widget, al );\n"
+			"  if ( gtk_widget_get_realize ( widget ) ) {\n"
+			"    gdk_window_move_resize ( priv->window, al->x, al->y, al->width, al->height );\n"
+			"  }\n"
+			"}\n"
+			"\n"
+			"static void %s_realize ( GtkWidget *widget ) {\n"
+			"  %sPrivate *priv;\n"
+			"  priv = %s_%s ( widget )->priv;\n"
+			"  GtkAllocation al;\n"
+			"  GdkWindowAttr attrs;\n"
+			"  int attrs_mask;\n"
+			"  gtk_widget_set_realized ( widget, TRUE );\n"
+			"  gtk_widget_get_allocation ( widget, &al );\n"
+			"  attrs.x = al.x;\n"
+			"  attrs.y = al.y;\n"
+			"  attrs.width = al.width;\n"
+			"  attrs.height = al.height;\n"
+			"  attrs.window_type = GDK_WINDOW_CHILD;\n"
+			"  attrs.wclass = GDK_INPUT_OUTPUT;\n"
+			"  attrs.event_mask = gtk_widget_get_events ( widget ) | GDK_EXPOSURE_MASK;\n"
+			"  attrs_mask = GDK_WA_X | GDK_WA_Y;\n"
+			"  priv->window = gdk_window_new ( gtk_widget_get_parent_window ( widget, &attrs, attrs_mask ) );\n"
+			"  gdk_window_set_user_data ( priv->window, widget );\n"
+			"  gtk_widget_set_window ( widget, priv->window );\n"
+			"}\n"
+			"\n"
+			"static gboolean %s_draw ( GtkWidget *widget, cairo_t *cr ) {\n"
+			"  return FALSE;\n"
+			"}\n"
 			"\n"
 			"static void %s_init ( %s *%s ) {\n"
-			"  %s->priv = G_TYPE_INSTANCE_GET_PRIVATE ( %s, %s_TYPE_%s, %sPrivate );\n"
-			"\n"
 			"  /* TODO: Add initialization code here */\n"
+			"  %sPrivate *priv;\n"
+			"  priv = calloc ( 1, sizeof ( %sPrivate ) );\n"
+			"  %s->priv = priv;\n"
+			"  gtk_widget_set_has_window ( GTK_WIDGET ( %s ), TRUE );\n"
 			"}\n"
 			"\n"
 			"static void %s_finalize ( %s *object ) {\n"
@@ -134,21 +182,48 @@ int main ( int argc, char **argv ) {
 			"\n"
 			"static void %s_class_init ( %sClass *klass ) {\n"
 			"  %sClass *object_class = GOBJECT_CLASS ( klass );\n"
-			"  g_type_class_add_private ( klass, sizeof ( %sPrivate ) );\n"
 			"  object_class->finalize = %s_finalize;\n"
+			"  GtkWidgetClass *w_class = GTK_WIDGET_CLASS ( klass );\n"
+			"  w_class->get_preferred_width = %s_get_preferred_width;\n"
+			"  w_class->get_preferred_height = %s_get_preferred_height;\n"
+			"  w_class->realize = %s_realize;\n"
+			"  w_class->size_allocate = %s_size_allocate;\n"
+			"  w_class->draw = %s_draw;\n"
+			"}\n"
+			"\n"
+			"GtkWidget *%s_new ( ) {\n"
+			"  return g_object_new ( %s_%s, NULL );\n"
 			"}\n"
 			,
 		class_prefix,
 		class_name,
 		class_name, class_prefix,
+		class_prefix,
+		class_prefix,
+		class_prefix,
+		class_name,
+		gobject_prefix, gobject_type,
+		class_prefix,
+		class_name,
+		gobject_prefix, gobject_type,
+		class_prefix,
 		class_prefix, class_name, class_prefix,
-		class_prefix, class_prefix, gobject_prefix, gobject_type, class_name,
+		class_name,
+		class_name,
+		class_prefix,
+		class_prefix,
 		class_prefix, base_class,
 		class_prefix,
 		class_prefix, class_name,
-		base_class,
 		class_name,
-		class_prefix
+		class_prefix,
+		class_prefix,
+		class_prefix,
+		class_prefix,
+		class_prefix,
+		class_prefix,
+		class_prefix,
+		gobject_prefix, gobject_type
 			);
 
 	FILE *fp_source = fopen ( source, "w" );
